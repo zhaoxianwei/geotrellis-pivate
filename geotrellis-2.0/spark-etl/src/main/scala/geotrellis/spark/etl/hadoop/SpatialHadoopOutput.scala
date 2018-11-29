@@ -23,8 +23,15 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.hadoop._
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class SpatialHadoopOutput extends HadoopOutput[SpatialKey, Tile, TileLayerMetadata[SpatialKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     HadoopLayerWriter(getPath(conf.output.backend).path).writer[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](conf.output.getKeyIndexMethod[SpatialKey])
+
+  //def layerwriter(conf: EtlConf)(implicit sc: SparkContext) =
+  //  HadoopLayerWriter(getPath(conf.output.backend).path)
+  def update(id: LayerId, rdd: RDD[(SpatialKey, Tile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    HadoopLayerWriter(getPath(conf.output.backend).path).update[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](id, rdd, mergeFunc={ (existing: Tile, updating: Tile) => existing.merge(updating) })
+  }
 }

@@ -18,19 +18,23 @@ package geotrellis.spark.etl
 
 import geotrellis.spark.etl.config.EtlConf
 import geotrellis.spark.{LayerId, Metadata}
-import geotrellis.spark.io.{AttributeStore, Writer}
+import geotrellis.spark.io.{AttributeStore, Writer, LayerWriter}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
 trait OutputPlugin[K, V, M] extends Plugin {
   import Etl.SaveAction
+  //import Etl.UpdateAction
 
   def name: String
 
   def attributes(conf: EtlConf): AttributeStore
 
   def writer(conf: EtlConf)(implicit sc: SparkContext): Writer[LayerId, RDD[(K, V)] with Metadata[M]]
+
+  //def layerwriter(conf: EtlConf)(implicit sc: SparkContext): LayerWriter[LayerId]
+  def update(id: LayerId, rdd: RDD[(K, V)] with Metadata[M], conf: EtlConf)(implicit sc: SparkContext): Unit
 
   def apply(
     id: LayerId,
@@ -40,6 +44,16 @@ trait OutputPlugin[K, V, M] extends Plugin {
   ): Unit = {
     implicit val sc = rdd.sparkContext
     saveAction(attributes(conf), writer(conf), id, rdd)
+  }
+
+  def apply(
+    id: LayerId,
+    rdd: RDD[(K, V)] with Metadata[M],
+    conf: EtlConf
+  ): Unit = {
+    implicit val sc = rdd.sparkContext
+    update(id, rdd, conf)
+    //updateAction(attributes(conf), layerwriter(conf), id, rdd)
   }
 
   def suitableFor(name: String): Boolean =

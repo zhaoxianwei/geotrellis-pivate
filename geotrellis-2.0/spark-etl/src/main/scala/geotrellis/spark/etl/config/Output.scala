@@ -34,6 +34,8 @@ case class Output(
   keyIndexMethod: IngestKeyIndexMethod,
   tileSize: Int = 256,
   pyramid: Boolean = true,
+  globalIndex: Boolean = false,
+  update: Boolean = false,
   partitions: Option[Int] = None,
   layoutScheme: Option[String] = None,
   layoutExtent: Option[Extent] = None,
