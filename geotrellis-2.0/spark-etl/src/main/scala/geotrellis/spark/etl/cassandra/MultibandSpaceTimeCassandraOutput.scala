@@ -23,10 +23,16 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.cassandra.CassandraLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class MultibandSpaceTimeCassandraOutput extends CassandraOutput[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) = {
     val path = getPath(conf.output.backend)
     CassandraLayerWriter(getInstance(conf.outputProfile), path.keyspace, path.table).writer[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]](conf.output.getKeyIndexMethod[SpaceTimeKey])
+  }
+
+  def update(id: LayerId, rdd: RDD[(SpaceTimeKey, MultibandTile)] with Metadata[TileLayerMetadata[SpaceTimeKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    val path = getPath(conf.output.backend)
+    CassandraLayerWriter(getInstance(conf.outputProfile), path.keyspace, path.table).update[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]](id, rdd, mergeFunc={ (existing: MultibandTile, updating: MultibandTile) => existing.merge(updating) })
   }
 }

@@ -4,6 +4,8 @@ name := "geotrellis-spark-etl"
 libraryDependencies ++= Seq(
   jsonSchemaValidator,
   sparkCore % Provided,
+  awsSdkS3,
+  hadoopAws,
   scalatest % Test
 )
 

@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.accumulo.AccumuloLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class MultibandSpatialAccumuloOutput extends AccumuloOutput[SpatialKey, MultibandTile, TileLayerMetadata[SpatialKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     AccumuloLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table, strategy(conf.outputProfile)).writer[SpatialKey, MultibandTile, TileLayerMetadata[SpatialKey]](conf.output.getKeyIndexMethod[SpatialKey])
+
+  def update(id: LayerId, rdd: RDD[(SpatialKey, MultibandTile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    AccumuloLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table, strategy(conf.outputProfile)).update[SpatialKey, MultibandTile, TileLayerMetadata[SpatialKey]](id, rdd, mergeFunc={ (existing: MultibandTile, updating: MultibandTile) => existing.merge(updating) })
+  }
 }

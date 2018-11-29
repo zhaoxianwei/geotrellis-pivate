@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.file._
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class SpatialFileOutput extends FileOutput[SpatialKey, Tile, TileLayerMetadata[SpatialKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     FileLayerWriter(getPath(conf.output.backend).path).writer[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](conf.output.getKeyIndexMethod[SpatialKey])
+
+  def update(id: LayerId, rdd: RDD[(SpatialKey, Tile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    FileLayerWriter(getPath(conf.output.backend).path).update[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](id, rdd, mergeFunc={ (existing: Tile, updating: Tile) => existing.merge(updating) })
+  }
 }

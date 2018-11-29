@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.hbase.HBaseLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class SpatialHBaseOutput extends HBaseOutput[SpatialKey, Tile, TileLayerMetadata[SpatialKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).writer[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](conf.output.getKeyIndexMethod[SpatialKey])
+
+  def update(id: LayerId, rdd: RDD[(SpatialKey, Tile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).update[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](id, rdd, mergeFunc={ (existing: Tile, updating: Tile) => existing.merge(updating) })
+  }
 }

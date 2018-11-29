@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.hbase.HBaseLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class MultibandSpaceTimeHBaseOutput extends HBaseOutput[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).writer[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]](conf.output.getKeyIndexMethod[SpaceTimeKey])
+
+  def update(id: LayerId, rdd: RDD[(SpaceTimeKey, MultibandTile)] with Metadata[TileLayerMetadata[SpaceTimeKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).update[SpaceTimeKey, MultibandTile, TileLayerMetadata[SpaceTimeKey]](id, rdd, mergeFunc={ (existing: MultibandTile, updating: MultibandTile) => existing.merge(updating) })
+  }
 }

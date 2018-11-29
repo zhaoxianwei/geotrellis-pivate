@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.accumulo.AccumuloLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class SpatialAccumuloOutput extends AccumuloOutput[SpatialKey, Tile, TileLayerMetadata[SpatialKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     AccumuloLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table, strategy(conf.outputProfile)).writer[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](conf.output.getKeyIndexMethod[SpatialKey])
+
+  def update(id: LayerId, rdd: RDD[(SpatialKey, Tile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    AccumuloLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table, strategy(conf.outputProfile)).update[SpatialKey, Tile, TileLayerMetadata[SpatialKey]](id, rdd, mergeFunc={ (existing: Tile, updating: Tile) => existing.merge(updating) })
+  }
 }

@@ -61,6 +61,12 @@
     "pyramid": {
       "type": "boolean"
     },
+    "globalIndex": {
+      "type": "boolean"
+    },
+    "update": {
+      "type": "boolean"
+    },
     "backend": {
       "type": "object",
       "properties": {

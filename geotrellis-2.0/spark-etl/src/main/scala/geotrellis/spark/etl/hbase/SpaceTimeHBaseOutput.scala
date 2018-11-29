@@ -23,8 +23,13 @@ import geotrellis.spark.io._
 import geotrellis.spark.io.hbase.HBaseLayerWriter
 
 import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 
 class SpaceTimeHBaseOutput extends HBaseOutput[SpaceTimeKey, Tile, TileLayerMetadata[SpaceTimeKey]] {
   def writer(conf: EtlConf)(implicit sc: SparkContext) =
     HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).writer[SpaceTimeKey, Tile, TileLayerMetadata[SpaceTimeKey]](conf.output.getKeyIndexMethod[SpaceTimeKey])
+
+  def update(id: LayerId, rdd: RDD[(SpaceTimeKey, Tile)] with Metadata[TileLayerMetadata[SpaceTimeKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = {
+    HBaseLayerWriter(getInstance(conf.outputProfile), getPath(conf.output.backend).table).update[SpaceTimeKey, Tile, TileLayerMetadata[SpaceTimeKey]](id, rdd, mergeFunc={ (existing: Tile, updating: Tile) => existing.merge(updating) })
+  }
 }

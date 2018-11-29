@@ -39,6 +39,7 @@ import org.apache.spark.rdd.RDD
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
+
 object Etl {
   val defaultModules = Array(s3.S3Module, hadoop.HadoopModule, file.FileModule, accumulo.AccumuloModule, cassandra.CassandraModule, hbase.HBaseModule)
 
@@ -50,6 +51,16 @@ object Etl {
         writer.write(layerId, rdd)
     }
   }
+
+  //type UpdateAction[K, V, M] = (AttributeStore, LayerWriter[LayerId], LayerId, RDD[(K, V)] with Metadata[M]) => Unit
+
+  //object UpdateAction {
+
+  //  def DEFAULT[K, V, M] = {
+  //    (_: AttributeStore, layerwriter: LayerWriter[LayerId], layerId: LayerId, rdd: RDD[(K, V)] with Metadata[M]) =>
+  //      layerwriter.update[K, V, M](layerId, rdd)
+  //  }
+  //}
 
   def ingest[
     I: Component[?, ProjectedExtent]: TypeTag: ? => TilerKeyMethods[I, K],
@@ -76,6 +87,7 @@ object Etl {
 
 case class Etl(conf: EtlConf, @transient modules: Seq[TypedModule] = Etl.defaultModules) extends LazyLogging {
   import Etl.SaveAction
+  //import Etl.UpdateAction
 
   val input  = conf.input
   val output = conf.output
@@ -153,10 +165,15 @@ case class Etl(conf: EtlConf, @transient modules: Seq[TypedModule] = Etl.default
     ): RDD[(K, V)] with Metadata[TileLayerMetadata[K]] = {
       // rekey metadata to targetLayout
       val newSpatialBounds = KeyBounds(targetLayout.mapTransform(floatMD.extent))
-      val tiledMD = floatMD.copy(
+      // val newSpatialBounds = KeyBounds(SpatialKey(0, 0), SpatialKey(col=targetLayout.layoutCols, row=targetLayout.layoutRows))
+      var tiledMD = floatMD.copy(
         bounds = floatMD.bounds.setSpatialBounds(newSpatialBounds),
         layout = targetLayout
       )
+
+      if (output.globalIndex) {
+          tiledMD = tiledMD.copy(bounds=tiledMD.bounds.setSpatialBounds(KeyBounds(SpatialKey(0, 0), SpatialKey(col=tiledMD.layout.layoutCols, row=tiledMD.layout.layoutRows))))
+      }
 
       // > 1 means we're upsampling during tiling process
       val resolutionRatio = floatMD.layout.cellSize.resolution / targetLayout.cellSize.resolution
@@ -199,10 +216,15 @@ case class Etl(conf: EtlConf, @transient modules: Seq[TypedModule] = Etl.default
 
       case BufferedReproject =>
         // Buffered reproject requires that tiles are already in some layout so we can find the neighbors
-        val md = { // collecting floating metadata allows detecting upsampling
+        var md = { // collecting floating metadata allows detecting upsampling
           val (_, md) = rdd.collectMetadata(FloatingLayoutScheme(output.tileSize))
           md.copy(cellType = targetCellType.getOrElse(md.cellType))
         }
+
+        if (output.globalIndex) {
+            md = md.copy(bounds=md.bounds.setSpatialBounds(KeyBounds(SpatialKey(0, 0), SpatialKey(col=md.layout.layoutCols, row=md.layout.layoutRows))))
+        }
+
         val tiled = ContextRDD(rdd.tileToLayout[K](md, method), md)
 
         scheme match {
@@ -258,9 +280,15 @@ case class Etl(conf: EtlConf, @transient modules: Seq[TypedModule] = Etl.default
         .find { _.suitableFor(output.backend.`type`.name) }
         .getOrElse(sys.error(s"Unable to find output module of type '${output.backend.`type`.name}'"))
 
+    val attributestore = outputPlugin.attributes(conf)
+
     def savePyramid(zoom: Int, rdd: RDD[(K, V)] with Metadata[TileLayerMetadata[K]]): Unit = {
       val currentId = id.copy(zoom = zoom)
-      outputPlugin(currentId, rdd, conf, saveAction)
+      if (output.update && attributestore.layerExists(currentId)) {
+          outputPlugin(currentId, rdd, conf)
+      } else {
+          outputPlugin(currentId, rdd, conf, saveAction)
+      }
 
       scheme match {
         case Left(s) =>

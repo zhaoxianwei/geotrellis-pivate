@@ -107,4 +107,5 @@ class SpatialRenderOutput extends OutputPlugin[SpatialKey, Tile, TileLayerMetada
 
   // TODO: ??? means that the hierarchy is broke. Pipelining improvements should fix this.
   def writer(conf: EtlConf)(implicit sc: SparkContext) = ???
+  def update(id: LayerId, rdd: RDD[(SpatialKey, Tile)] with Metadata[TileLayerMetadata[SpatialKey]], conf: EtlConf)(implicit sc: SparkContext): Unit = ???
 }
